@@ -4,11 +4,18 @@ setlocal
 title Royal Sky Member Portal
 cd /d "%~dp0"
 
+where node >nul 2>&1
+if errorlevel 1 (
+  echo Node.js tidak ditemukan. Pastikan Node.js sudah terpasang.
+  pause
+  exit /b 1
+)
+
 echo [1/3] Menghentikan server lama di port 3001...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }"
 
-echo [2/3] Menjalankan Next.js di port 3001...
-start "Royal Sky Dev Server" /min cmd /c "npm.cmd run dev"
+echo [2/3] Menjalankan server di jendela Royal Sky Dev Server...
+start "Royal Sky Dev Server" cmd /c "title Royal Sky Dev Server & echo Tekan Ctrl+C di jendela ini untuk menghentikan server. & node node_modules\next\dist\bin\next dev -p 3001"
 
 echo [3/3] Menunggu server siap...
 set /a tries=0
@@ -21,25 +28,24 @@ ping -n 3 127.0.0.1 >nul
 goto wait
 
 :ready
-if /I "%PORTAL_NO_BROWSER%"=="1" (
-  echo Server siap di http://localhost:3001
-  exit /b 0
-)
-
+set "PORTAL_URL=http://localhost:3001"
 set "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
 if not exist "%CHROME%" set "CHROME=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
 if not exist "%CHROME%" set "CHROME=%LocalAppData%\Google\Chrome\Application\chrome.exe"
 
-if exist "%CHROME%" (
-  start "" "%CHROME%" --new-window "http://localhost:3001"
-) else (
-  echo Chrome tidak ditemukan. Membuka browser default...
-  start "" "http://localhost:3001"
+if /I not "%PORTAL_NO_BROWSER%"=="1" (
+  if exist "%CHROME%" (
+    start "" "%CHROME%" --new-window "%PORTAL_URL%"
+  ) else (
+    echo Chrome tidak ditemukan. Membuka browser default...
+    start "" "%PORTAL_URL%"
+  )
 )
 
 echo.
-echo Portal dibuka di http://localhost:3001
-echo Jendela "Royal Sky Dev Server" harus tetap terbuka selama portal dipakai.
+echo Portal berjalan di http://localhost:3001
+echo Muat ulang halaman dengan Shift+R bila perlu.
+echo Untuk stop: tekan Ctrl+C di jendela "Royal Sky Dev Server".
 ping -n 4 127.0.0.1 >nul
 exit /b 0
 
