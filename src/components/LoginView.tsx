@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { demoMember } from "@/lib/demo";
 
 import { MemberCard } from "./MemberCard";
+import { ThemeToggle } from "./ThemeToggle";
 import { Brand } from "./brand";
 import { Icon } from "./icons";
 
@@ -120,6 +121,7 @@ export function LoginView({
             Lihat contoh kartu
             <Icon name="arrow-up-right" size={14} />
           </a>
+          <ThemeToggle />
         </div>
       </header>
 

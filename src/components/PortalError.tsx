@@ -2,12 +2,14 @@
 
 import { Brand } from "./brand";
 import { Icon } from "./icons";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function PortalError({ message }: { message: string }) {
   return (
     <div className="error-shell">
       <header className="login-topbar">
         <Brand />
+        <ThemeToggle />
       </header>
 
       <main className="error-main">

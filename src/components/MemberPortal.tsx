@@ -7,6 +7,7 @@ import type { MemberCardData } from "@/lib/types";
 
 import { MemberCard, type CardSide } from "./MemberCard";
 import { QrZoomModal } from "./QrZoomModal";
+import { ThemeToggle } from "./ThemeToggle";
 import { Brand } from "./brand";
 import { Icon } from "./icons";
 
@@ -198,6 +199,8 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
               <span className="avatar">{initialsOf(member.name)}</span>
               <span className="user-name">{member.name}</span>
             </div>
+
+            <ThemeToggle />
 
             {preview ? (
               <a className="icon-btn" href="/" aria-label="Kembali ke halaman login">

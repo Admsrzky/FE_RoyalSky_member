@@ -1,7 +1,37 @@
 import type { Metadata, Viewport } from "next";
 import { Alex_Brush, JetBrains_Mono, Montserrat } from "next/font/google";
+import Script from "next/script";
 
 import "./globals.css";
+
+const themeInitScript = `
+(function () {
+  try {
+    var key = "rs-theme";
+    var stored = window.localStorage.getItem(key);
+    var theme = stored === "light" || stored === "dark"
+      ? stored
+      : (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+    var root = document.documentElement;
+    root.dataset.theme = theme;
+    root.style.colorScheme = theme;
+
+    function setThemeColor() {
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        meta.setAttribute("content", theme === "light" ? "#eef5f4" : "#05080b");
+      }
+    }
+
+    setThemeColor();
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", setThemeColor, { once: true });
+    }
+  } catch (error) {
+    document.documentElement.dataset.theme = "dark";
+  }
+})();
+`;
 
 const montserrat = Montserrat({
   variable: "--font-montserrat",
@@ -36,16 +66,24 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#05080b",
-  colorScheme: "dark",
+  colorScheme: "light dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="id"
+      suppressHydrationWarning
       className={`${montserrat.variable} ${jetbrainsMono.variable} ${alexBrush.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        {children}
+        <Script
+          id="royal-sky-theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+        />
+      </body>
     </html>
   );
 }

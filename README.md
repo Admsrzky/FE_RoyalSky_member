@@ -4,6 +4,8 @@ Portal web member Royal Sky Gym Club. Mode normal memakai email/ID akun dan PIN.
 
 Tampilan kartu merupakan port dari aplikasi Flutter (`FE_RoyaleSky_Flutter`) ke React: kanvas desain tetap 340 × 517, aksen chrome + neon, sisi depan/belakang, dan QR yang dapat diperbesar.
 
+Portal mendukung mode terang dan gelap. Tombol tema ada di topbar; pilihan disimpan di `localStorage`, default mengikuti preferensi sistem, dan kartu member tetap memakai kanvas gelap.
+
 ## Menjalankan
 
 ```bash
