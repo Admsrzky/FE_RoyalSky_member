@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 async function revokeToken() {
   const session = await getSession();
-  if (!session) return;
+  if (!session || !session.token) return;
   try {
     await upstream("/auth/logout", {
       method: "POST",

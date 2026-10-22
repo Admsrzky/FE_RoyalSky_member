@@ -44,6 +44,7 @@ export const demoMember: MemberCardData = {
   isExpired: false,
   isFrozen: false,
   isActive: true,
+  isLimited: false,
   daysRemaining: 70,
 
   membershipId: "712",

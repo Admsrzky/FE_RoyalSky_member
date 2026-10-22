@@ -3,13 +3,15 @@ import { MemberPortal } from "@/components/MemberPortal";
 import { PortalError } from "@/components/PortalError";
 import { ApiError } from "@/lib/api";
 import { loadMemberData } from "@/lib/member";
+import { pinlessLoginEnabled } from "@/lib/service";
 import { getSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  const pinless = pinlessLoginEnabled();
   const session = await getSession();
-  if (!session) return <LoginView />;
+  if (!session) return <LoginView pinless={pinless} />;
 
   try {
     const member = await loadMemberData(session);
@@ -18,7 +20,12 @@ export default async function Home() {
     if (error instanceof ApiError && error.isSessionError) {
       return (
         <LoginView
-          notice="Sesi Anda telah berakhir. Silakan masuk kembali dengan PIN Anda."
+          pinless={pinless}
+          notice={
+            pinless
+              ? "Sesi Anda telah berakhir. Silakan masuk kembali dengan email atau ID member."
+              : "Sesi Anda telah berakhir. Silakan masuk kembali dengan PIN Anda."
+          }
           clearSession
         />
       );

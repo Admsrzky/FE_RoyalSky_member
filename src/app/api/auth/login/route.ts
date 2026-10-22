@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
 import { ApiError, upstream } from "@/lib/api";
-import { authCookies } from "@/lib/session";
+import { resolvePinlessMember } from "@/lib/pinless";
+import { pinlessLoginEnabled, pinlessServiceReady } from "@/lib/service";
+import { authCookies, sessionSecretReady } from "@/lib/session";
 import type { SessionUser } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -27,6 +29,73 @@ function failure(message: string, status: number) {
   );
 }
 
+const pinlessAttempts = new Map<string, { count: number; resetAt: number }>();
+
+function pinlessRateLimited(request: Request): boolean {
+  const key =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const now = Date.now();
+  const bucket = pinlessAttempts.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    pinlessAttempts.set(key, { count: 1, resetAt: now + 60_000 });
+    return false;
+  }
+  bucket.count += 1;
+  return bucket.count > 20;
+}
+
+async function loginWithoutPin(identifier: string) {
+  if (!pinlessServiceReady() || !sessionSecretReady()) {
+    return failure(
+      "Mode tanpa PIN belum siap. Hubungi pengelola portal Royal Sky.",
+      503,
+    );
+  }
+
+  try {
+    const user = await resolvePinlessMember(identifier);
+    const response = NextResponse.json(
+      {
+        ok: true,
+        limited: true,
+        user: { id: user.id, name: user.name, email: user.email },
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+
+    for (const cookie of authCookies({ token: "", user })) {
+      response.cookies.set(cookie);
+    }
+
+    return response;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 404) return failure(error.message, 404);
+      if (error.status === 429) {
+        return failure(
+          "Terlalu banyak permintaan. Coba lagi dalam beberapa menit.",
+          429,
+        );
+      }
+      if (error.status === 401 || error.status === 403) {
+        console.error("[login:pinless] service account rejected", error.status);
+        return failure(
+          "Akun layanan portal tidak memiliki akses. Hubungi pengelola portal.",
+          503,
+        );
+      }
+      if (error.status === 0) return failure(error.message, 503);
+      return failure(
+        error.message || "Login belum bisa diproses. Coba lagi.",
+        error.status >= 400 && error.status < 600 ? error.status : 502,
+      );
+    }
+
+    console.error("[login:pinless] unexpected error", error);
+    return failure("Login belum bisa diproses. Coba lagi beberapa saat.", 500);
+  }
+}
+
 export async function POST(request: Request) {
   let body: unknown;
   try {
@@ -43,8 +112,19 @@ export async function POST(request: Request) {
   const pin = readString(record.pin).replace(/\s+/g, "");
 
   if (!identifier) {
-    return failure("Masukkan email atau ID akun Anda.", 422);
+    return failure("Masukkan email atau ID member Anda.", 422);
   }
+
+  if (pinlessLoginEnabled()) {
+    if (pinlessRateLimited(request)) {
+      return failure(
+        "Terlalu banyak permintaan login. Coba lagi dalam satu menit.",
+        429,
+      );
+    }
+    return loginWithoutPin(identifier);
+  }
+
   if (!/^\d{4,6}$/.test(pin)) {
     return failure("PIN harus terdiri dari 4–6 digit.", 422);
   }
@@ -88,6 +168,7 @@ export async function POST(request: Request) {
       posAreas: readList(rawUser.pos_areas),
       permissions: readList(rawUser.permissions),
       createdAt: readString(rawUser.created_at),
+      access: "pin",
     };
 
     const response = NextResponse.json(

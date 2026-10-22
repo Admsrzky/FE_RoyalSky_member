@@ -2330,6 +2330,47 @@ button.mc-qr-box:hover {
   text-align: center;
 }
 
+.mc-qr-shell-limited {
+  padding: 7px;
+  border: 1px solid rgba(255, 199, 44, 0.3);
+  background: rgba(8, 13, 18, 0.9);
+  box-shadow: 0 0 18px -6px rgba(255, 199, 44, 0.45);
+}
+
+.mc-qr-locked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--amber);
+  background: #0b1117;
+  border: 1px dashed rgba(255, 199, 44, 0.35);
+  text-align: center;
+}
+
+.mc-qr-locked svg {
+  width: 38px !important;
+  height: 38px !important;
+}
+
+.mc-qr-locked span {
+  font-size: 6.4px;
+  font-weight: 800;
+  letter-spacing: 0.9px;
+}
+
+.mc-qr-locked small {
+  color: rgba(255, 229, 163, 0.66);
+  font-size: 5.4px;
+  letter-spacing: 0.35px;
+}
+
+.limited-banner {
+  margin-bottom: 20px;
+  color: #ffe5a3;
+}
+
 .mc-zoom-badge {
   position: absolute;
   right: 3px;

@@ -12,11 +12,16 @@ import { Icon } from "./icons";
 type LoginViewProps = {
   notice?: string;
   clearSession?: boolean;
+  pinless?: boolean;
 };
 
 const KEYPAD = ["1", "2", "3", "4", "5", "6", "7", "8", "9"] as const;
 
-export function LoginView({ notice, clearSession = false }: LoginViewProps) {
+export function LoginView({
+  notice,
+  clearSession = false,
+  pinless = false,
+}: LoginViewProps) {
   const router = useRouter();
   const pinRef = useRef<HTMLInputElement>(null);
   const [identifier, setIdentifier] = useState("");
@@ -32,7 +37,9 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
   }, [clearSession]);
 
   const canSubmit =
-    identifier.trim().length > 0 && /^\d{4,6}$/.test(pin) && !loading;
+    identifier.trim().length > 0 &&
+    (pinless || /^\d{4,6}$/.test(pin)) &&
+    !loading;
 
   function pressDigit(digit: string) {
     setError(null);
@@ -53,8 +60,8 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
     event.preventDefault();
     if (!canSubmit) {
       if (!identifier.trim()) {
-        setError("Masukkan email atau ID akun Anda.");
-      } else if (!/^\d{4,6}$/.test(pin)) {
+        setError("Masukkan email atau ID member Anda.");
+      } else if (!pinless && !/^\d{4,6}$/.test(pin)) {
         setError("PIN harus terdiri dari 4–6 digit.");
       }
       return;
@@ -67,10 +74,11 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          identifier: identifier.trim(),
-          pin,
-        }),
+        body: JSON.stringify(
+          pinless
+            ? { identifier: identifier.trim() }
+            : { identifier: identifier.trim(), pin },
+        ),
       });
       const payload = (await response.json().catch(() => null)) as
         | { ok?: boolean; message?: string }
@@ -81,8 +89,10 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
           payload?.message ||
             "Login belum bisa diproses. Periksa data Anda dan coba lagi.",
         );
-        setPin("");
-        pinRef.current?.focus();
+        if (!pinless) {
+          setPin("");
+          pinRef.current?.focus();
+        }
         return;
       }
 
@@ -102,9 +112,9 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
       <header className="login-topbar">
         <Brand />
         <div className="topbar-actions">
-          <span className="topbar-chip">
+          <span className={`topbar-chip${pinless ? " is-preview" : ""}`}>
             <span className="live-dot" />
-            PORTAL MEMBER
+            {pinless ? "MODE TANPA PIN" : "PORTAL MEMBER"}
           </span>
           <a className="ghost-link" href="/preview">
             Lihat contoh kartu
@@ -123,29 +133,55 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
             Kartu member Anda, <em>selalu</em> dalam genggaman.
           </h1>
           <p>
-            Masuk dengan PIN untuk membuka kartu digital Royal Sky, QR akses
-            pintu, saldo wallet, poin loyalty, dan riwayat membership Anda.
+            {pinless
+              ? "Masuk dengan email atau ID member untuk membuka kartu digital dan ringkasan membership Anda."
+              : "Masuk dengan PIN untuk membuka kartu digital Royal Sky, QR akses pintu, saldo wallet, poin loyalty, dan riwayat membership Anda."}
           </p>
 
           <ul className="feature-list">
-            <li>
-              <span className="feature-check">
-                <Icon name="check" size={13} />
-              </span>
-              QR pintu selalu siap dipindai di gerbang gym.
-            </li>
-            <li>
-              <span className="feature-check">
-                <Icon name="check" size={13} />
-              </span>
-              Status membership, sisa hari, dan sesi PT dalam satu tampilan.
-            </li>
-            <li>
-              <span className="feature-check">
-                <Icon name="check" size={13} />
-              </span>
-              Data tersinkron langsung dengan sistem Royal Sky.
-            </li>
+            {pinless ? (
+              <>
+                <li>
+                  <span className="feature-check">
+                    <Icon name="check" size={13} />
+                  </span>
+                  Kartu digital, status membership, dan sisa hari.
+                </li>
+                <li>
+                  <span className="feature-check">
+                    <Icon name="check" size={13} />
+                  </span>
+                  Poin loyalty, sesi PT, dan riwayat membership.
+                </li>
+                <li>
+                  <span className="feature-check">
+                    <Icon name="lock" size={13} />
+                  </span>
+                  Wallet dan QR akses pintu terkunci sampai login PIN tersedia.
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  <span className="feature-check">
+                    <Icon name="check" size={13} />
+                  </span>
+                  QR pintu selalu siap dipindai di gerbang gym.
+                </li>
+                <li>
+                  <span className="feature-check">
+                    <Icon name="check" size={13} />
+                  </span>
+                  Status membership, sisa hari, dan sesi PT dalam satu tampilan.
+                </li>
+                <li>
+                  <span className="feature-check">
+                    <Icon name="check" size={13} />
+                  </span>
+                  Data tersinkron langsung dengan sistem Royal Sky.
+                </li>
+              </>
+            )}
           </ul>
 
           <div className="hero-card-stage" aria-hidden="true">
@@ -166,9 +202,20 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
             </div>
 
             <p className="auth-lead">
-              Gunakan email atau ID akun yang terdaftar di Royal Sky, lalu
-              masukkan PIN member Anda.
+              {pinless
+                ? "Gunakan email atau ID member yang terdaftar. PIN tidak diminta pada mode sementara ini."
+                : "Gunakan email atau ID akun yang terdaftar di Royal Sky, lalu masukkan PIN member Anda."}
             </p>
+
+            {pinless && (
+              <div className="alert info mode-note" role="status">
+                <Icon name="lock" size={16} />
+                <span>
+                  Akses terbatas: kartu dan membership tampil, tetapi wallet dan
+                  QR akses pintu disembunyikan.
+                </span>
+              </div>
+            )}
 
             {notice && !error && (
               <div className="alert info" role="status">
@@ -179,7 +226,7 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
 
             <form onSubmit={handleSubmit} noValidate>
               <label className="field-label" htmlFor="identifier">
-                Email atau ID akun
+                Email atau ID member
               </label>
               <div className="field">
                 <Icon name="at" size={17} />
@@ -191,7 +238,7 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
                   autoComplete="username"
                   autoCapitalize="none"
                   spellCheck={false}
-                  placeholder="nama@email.com atau ID akun"
+                  placeholder="nama@email.com atau ID member"
                   value={identifier}
                   onChange={(event) => {
                     setError(null);
@@ -200,6 +247,8 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
                 />
               </div>
 
+              {!pinless && (
+                <>
               <div className="pin-head">
                 <label htmlFor="pin">PIN</label>
                 <span>{pin.length} / 6</span>
@@ -269,6 +318,8 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
                   <Icon name="backspace" size={19} />
                 </button>
               </div>
+                </>
+              )}
 
               {error && (
                 <div className="alert" role="alert">
@@ -301,13 +352,14 @@ export function LoginView({ notice, clearSession = false }: LoginViewProps) {
                 <Icon name="shield" size={13} />
                 Koneksi aman
               </span>
-              <span>PIN 4–6 digit</span>
+              <span>{pinless ? "Akses terbatas" : "PIN 4–6 digit"}</span>
             </div>
           </div>
 
           <p className="auth-help">
-            Belum punya akses? Hubungi resepsionis Royal Sky atau gunakan menu
-            daftar member di klub.
+            {pinless
+              ? "Mode tanpa PIN bersifat sementara. Wallet dan QR pintu akan aktif kembali setelah login PIN diperbaiki."
+              : "Belum punya akses? Hubungi resepsionis Royal Sky atau gunakan menu daftar member di klub."}
           </p>
         </section>
       </main>

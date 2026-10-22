@@ -108,6 +108,13 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
   }
 
   function openQr() {
+    if (member.isLimited) {
+      showToast(
+        "QR akses pintu terkunci. Fitur ini memerlukan login PIN.",
+        "danger",
+      );
+      return;
+    }
     if (!member.hasGateQr) {
       showToast("QR akses pintu belum tersedia untuk akun ini.", "danger");
       return;
@@ -175,6 +182,11 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
                 <span className="live-dot" />
                 MODE PRATINJAU
               </span>
+            ) : member.isLimited ? (
+              <span className="topbar-chip is-preview">
+                <span className="live-dot" />
+                MODE TERBATAS
+              </span>
             ) : (
               <span className="topbar-chip">
                 <span className="live-dot" />
@@ -215,6 +227,16 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
           </div>
         )}
 
+        {member.isLimited && !preview && (
+          <div className="preview-banner limited-banner" role="status">
+            <Icon name="lock" size={15} />
+            <span>
+              Akses terbatas: wallet dan QR akses pintu disembunyikan sampai
+              login PIN tersedia kembali.
+            </span>
+          </div>
+        )}
+
         <section className="portal-intro" aria-labelledby="portal-title">
           <div>
             <span className="eyebrow">
@@ -223,7 +245,9 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
             </span>
             <h1 id="portal-title">Halo, {firstName}.</h1>
             <p>
-              Berikut ringkasan membership dan kartu digital Anda hari ini.
+              {member.isLimited
+                ? "Berikut kartu dan ringkasan membership Anda. Wallet dan QR pintu dinonaktifkan pada mode terbatas."
+                : "Berikut ringkasan membership dan kartu digital Anda hari ini."}
             </p>
           </div>
 
@@ -267,10 +291,12 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
                   <Icon name="copy" size={14} />
                   Salin kode
                 </button>
-                <button type="button" className="btn-ghost" onClick={openQr}>
-                  <Icon name="qr" size={14} />
-                  QR pintu
-                </button>
+                {!member.isLimited && (
+                  <button type="button" className="btn-ghost" onClick={openQr}>
+                    <Icon name="qr" size={14} />
+                    QR pintu
+                  </button>
+                )}
                 {preview ? (
                   <a className="btn-ghost" href="/">
                     <Icon name="arrow-right" size={14} />
@@ -307,8 +333,10 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
             )}
 
             <p className="card-note">
-              <Icon name="shield" size={14} />
-              Tunjukkan kartu atau QR ini kepada petugas bila diminta.
+              <Icon name={member.isLimited ? "lock" : "shield"} size={14} />
+              {member.isLimited
+                ? "Kartu tampil dalam mode terbatas. QR akses pintu memerlukan login PIN."
+                : "Tunjukkan kartu atau QR ini kepada petugas bila diminta."}
             </p>
           </section>
 
@@ -334,13 +362,21 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
                 </span>
               </article>
 
-              <article className="stat" data-tone="cyan">
-                <span className="stat-label">Saldo wallet</span>
-                <span className="stat-value stat-value-money">
-                  {member.walletLabel}
-                </span>
-                <span className="stat-sub">Siap dipakai di club</span>
-              </article>
+              {member.isLimited ? (
+                <article className="stat" data-tone="amber">
+                  <span className="stat-label">Akses</span>
+                  <span className="stat-value">Terbatas</span>
+                  <span className="stat-sub">Wallet & QR perlu PIN</span>
+                </article>
+              ) : (
+                <article className="stat" data-tone="cyan">
+                  <span className="stat-label">Saldo wallet</span>
+                  <span className="stat-value stat-value-money">
+                    {member.walletLabel}
+                  </span>
+                  <span className="stat-sub">Siap dipakai di club</span>
+                </article>
+              )}
 
               <article className="stat" data-tone="violet">
                 <span className="stat-label">Poin loyalty</span>
@@ -519,7 +555,7 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
         <span>Kartu digital resmi member · Data tersinkron dengan server</span>
       </footer>
 
-      {qrOpen && member.hasGateQr && (
+      {qrOpen && !member.isLimited && member.hasGateQr && (
         <QrZoomModal
           data={member.qrData}
           memberName={member.name}

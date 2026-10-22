@@ -1,5 +1,6 @@
 import { API_BASE_URL, ApiError, upstream } from "./api";
 import { daysUntil, numberID, rupiah, shortDate } from "./format";
+import { getServiceSession } from "./service";
 import type {
   AttendanceInfo,
   GateCardInfo,
@@ -219,6 +220,7 @@ function finalizeCard(source: CardSource): MemberCardData {
     isExpired,
     isFrozen,
     isActive,
+    isLimited: source.isLimited,
     daysRemaining: days,
   };
 }
@@ -333,10 +335,38 @@ export function buildMemberCard(
     memberships: [],
     attendance: null,
     lastUsedAt: "",
+    isLimited: false,
     ...extras,
   };
 
   return finalizeCard(source);
+}
+
+/** Finds a member row returned by the `GET /members?q=` lookup endpoint. */
+export function findMemberRow(
+  payload: unknown,
+  identifier: string,
+): JsonRecord | null {
+  const needle = identifier.trim().toLowerCase();
+  if (!needle) return null;
+
+  const rows = arrayFrom(payload, ["items", "members", "data"]).map(asRecord);
+  const match = rows.find((row) => {
+    const candidates = [
+      row.id,
+      row.member_id,
+      row.email,
+      row.member_code,
+      row.code,
+      row.phone,
+      row.phone_number,
+    ]
+      .map(textOf)
+      .map((value) => value.toLowerCase());
+    return candidates.includes(needle);
+  });
+
+  return match ?? null;
 }
 
 function normalizeGateCard(payload: unknown): GateCardInfo | null {
@@ -530,11 +560,51 @@ async function resolveMemberRaw(
  * memberships and attendance data. Only the member endpoint is required.
  */
 export async function loadMemberData(session: Session): Promise<MemberCardData> {
-  const { token, user } = session;
+  const { user } = session;
+  const isPinless = user.access === "pinless";
+  const token = isPinless ? (await getServiceSession()).token : session.token;
   const branchId = user.homeBranchId > 0 ? user.homeBranchId : undefined;
   const { raw, id } = await resolveMemberRaw(token, branchId, user);
   const base = buildMemberCard(raw);
   const memberPath = `/members/${encodeURIComponent(id)}`;
+
+  if (isPinless) {
+    // Limited mode intentionally never fetches wallet or gate-card data.
+    const [membershipsResult, attendanceResult] = await Promise.allSettled([
+      upstream<unknown>(`${memberPath}/memberships`, { token, branchId }),
+      upstream<unknown>(`${memberPath}/attendance-summary`, {
+        token,
+        branchId,
+      }),
+    ]);
+
+    const memberships =
+      membershipsResult.status === "fulfilled"
+        ? normalizeMemberships(membershipsResult.value)
+        : [];
+    const attendance =
+      attendanceResult.status === "fulfilled"
+        ? normalizeAttendance(attendanceResult.value)
+        : null;
+    const activeMembership =
+      memberships.find((item) =>
+        item.status.toLowerCase().includes("active"),
+      ) ?? memberships[0];
+
+    return buildMemberCard(raw, {
+      wallet: 0,
+      gateCode: "",
+      gatePayload: "",
+      gateStatus: "",
+      gateActive: false,
+      gateLoaded: false,
+      membershipId: activeMembership?.id || base.membershipId,
+      memberships,
+      attendance,
+      lastUsedAt: attendance?.lastVisit || base.lastUsedAt,
+      isLimited: true,
+    });
+  }
 
   const [walletResult, gateResult, membershipsResult, attendanceResult] =
     await Promise.allSettled([
@@ -584,5 +654,6 @@ export async function loadMemberData(session: Session): Promise<MemberCardData> 
       gate?.lastUsedAt ||
       attendance?.lastVisit ||
       base.lastUsedAt,
+    isLimited: false,
   });
 }

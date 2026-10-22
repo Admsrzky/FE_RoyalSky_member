@@ -227,38 +227,48 @@ function CardBack({
       </div>
 
       <div className="mc-qr-block">
-        <div className="mc-qr-shell">
-          {data.hasGateQr ? (
-            onQrClick ? (
-              <button
-                type="button"
-                className={`mc-qr-box${active ? "" : " is-inactive"}`}
-                onClick={onQrClick}
-                aria-label="Perbesar QR akses pintu"
-              >
-                {qrMarkup}
-                <span className="mc-zoom-badge">
-                  <Icon name="qr" size={11} />
-                </span>
-              </button>
-            ) : (
-              <div className={`mc-qr-box${active ? "" : " is-inactive"}`}>
-                {qrMarkup}
-              </div>
-            )
-          ) : (
-            <div className="mc-qr-box mc-qr-empty">
-              <Icon name="qr" size={46} />
-              <span>QR BELUM TERSEDIA</span>
+        {data.isLimited ? (
+          <div className="mc-qr-shell mc-qr-shell-limited">
+            <div className="mc-qr-box mc-qr-locked">
+              <Icon name="lock" size={42} />
+              <span>QR AKSES TERKUNCI</span>
+              <small>Login PIN untuk membuka</small>
             </div>
-          )}
+          </div>
+        ) : (
+          <div className="mc-qr-shell">
+            {data.hasGateQr ? (
+              onQrClick ? (
+                <button
+                  type="button"
+                  className={`mc-qr-box${active ? "" : " is-inactive"}`}
+                  onClick={onQrClick}
+                  aria-label="Perbesar QR akses pintu"
+                >
+                  {qrMarkup}
+                  <span className="mc-zoom-badge">
+                    <Icon name="qr" size={11} />
+                  </span>
+                </button>
+              ) : (
+                <div className={`mc-qr-box${active ? "" : " is-inactive"}`}>
+                  {qrMarkup}
+                </div>
+              )
+            ) : (
+              <div className="mc-qr-box mc-qr-empty">
+                <Icon name="qr" size={46} />
+                <span>QR BELUM TERSEDIA</span>
+              </div>
+            )}
 
-          {data.hasGateQr && !active && (
-            <span className="mc-qr-blocked">
-              {data.isFrozen ? "KARTU DIBEKUKAN" : "KARTU TIDAK AKTIF"}
-            </span>
-          )}
-        </div>
+            {data.hasGateQr && !active && (
+              <span className="mc-qr-blocked">
+                {data.isFrozen ? "KARTU DIBEKUKAN" : "KARTU TIDAK AKTIF"}
+              </span>
+            )}
+          </div>
+        )}
         <span className="mc-back-cardno">{data.cardNumber}</span>
       </div>
 
@@ -272,7 +282,11 @@ function CardBack({
           tone={data.isExpired ? "danger" : data.isFrozen ? "amber" : "cyan"}
         />
         <DetailCell label="BERLAKU S/D" value={data.expiryLabel} />
-        <DetailCell label="SALDO WALLET" value={data.walletLabel} tone="cyan" />
+        {data.isLimited ? (
+          <DetailCell label="AKSES" value="TERBATAS" tone="amber" />
+        ) : (
+          <DetailCell label="SALDO WALLET" value={data.walletLabel} tone="cyan" />
+        )}
         <DetailCell label="POIN LOYALTY" value={data.pointsLabel} />
         <DetailCell label="FASILITAS" value={data.facility.toUpperCase()} />
         <DetailCell label="TERDAFTAR" value={data.joinedLabel} />

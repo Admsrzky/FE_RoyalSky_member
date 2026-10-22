@@ -8,6 +8,8 @@ export type SessionUser = {
   posAreas: string[];
   permissions: string[];
   createdAt: string;
+  /** `pinless` sessions are read-only and never hold a member API token. */
+  access: "pin" | "pinless";
 };
 
 export type Session = {
@@ -91,6 +93,7 @@ export type MemberCardData = {
   isExpired: boolean;
   isFrozen: boolean;
   isActive: boolean;
+  isLimited: boolean;
   daysRemaining: number | null;
 
   // Extra context for the portal.
