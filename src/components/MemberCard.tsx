@@ -137,17 +137,16 @@ function CardFront({ data }: { data: MemberCardData }) {
       <span className="mc-tier">{data.tierBadge}</span>
 
       <div className="mc-front-main">
-        <CrownMark width={84} height={56} className="mc-crown-front" />
-
-        <span className="mc-script mc-script-royal">
-          <span className="mc-script-shadow">Royal</span>
-          <span className="mc-script-fill">Royal</span>
-        </span>
-
-        <span className="mc-script mc-script-sky">
-          <span className="mc-script-shadow">Sky</span>
-          <span className="mc-script-fill">Sky</span>
-        </span>
+        <div className="mc-brand-logo">
+          <img
+            src="/royal-sky-logo.png"
+            alt=""
+            width={512}
+            height={512}
+            aria-hidden="true"
+            draggable={false}
+          />
+        </div>
 
         <span className="mc-gym">GYM CLUB</span>
         <span className="mc-divider" />
