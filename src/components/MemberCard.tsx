@@ -1,4 +1,5 @@
 "use client";
+import { withBasePath } from "@/lib/base-path";
 
 import { QRCodeSVG } from "qrcode.react";
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
@@ -139,7 +140,7 @@ function CardFront({ data }: { data: MemberCardData }) {
       <div className="mc-front-main">
         <div className="mc-brand-logo">
           <img
-            src="/royal-sky-logo.png"
+            src={withBasePath("/royal-sky-logo.png")}
             alt=""
             width={512}
             height={512}

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { demoMember } from "@/lib/demo";
+import { withBasePath } from "@/lib/base-path";
 
 import { MemberCard } from "./MemberCard";
 import { ThemeToggle } from "./ThemeToggle";
@@ -32,7 +33,7 @@ export function LoginView({
 
   useEffect(() => {
     if (!clearSession) return;
-    void fetch("/api/auth/logout", { method: "POST" }).catch(() => {
+    void fetch(withBasePath("/api/auth/logout"), { method: "POST" }).catch(() => {
       // The login screen is still usable if the cleanup request fails.
     });
   }, [clearSession]);
@@ -72,7 +73,7 @@ export function LoginView({
     setError(null);
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch(withBasePath("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
@@ -117,7 +118,7 @@ export function LoginView({
             <span className="live-dot" />
             {pinless ? "MODE TANPA PIN" : "PORTAL MEMBER"}
           </span>
-          <a className="ghost-link" href="/preview">
+          <a className="ghost-link" href={withBasePath("/preview")}>
             Lihat contoh kartu
             <Icon name="arrow-up-right" size={14} />
           </a>

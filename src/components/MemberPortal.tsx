@@ -1,4 +1,5 @@
 "use client";
+import { withBasePath } from "@/lib/base-path";
 
 import { useEffect, useState } from "react";
 
@@ -132,9 +133,9 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
     setSyncing(true);
     setSyncError(null);
     try {
-      const response = await fetch("/api/member", { cache: "no-store" });
+      const response = await fetch(withBasePath("/api/member"), { cache: "no-store" });
       if (response.status === 401) {
-        window.location.assign("/");
+        window.location.assign(withBasePath("/"));
         return;
       }
       const payload = (await response.json().catch(() => null)) as
@@ -169,7 +170,7 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
 
   function logout() {
     setLoggingOut(true);
-    window.location.assign("/api/auth/logout");
+    window.location.assign(withBasePath("/api/auth/logout"));
   }
 
   return (
@@ -203,7 +204,7 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
             <ThemeToggle />
 
             {preview ? (
-              <a className="icon-btn" href="/" aria-label="Kembali ke halaman login">
+              <a className="icon-btn" href={withBasePath("/")} aria-label="Kembali ke halaman login">
                 <Icon name="arrow-right" size={17} />
               </a>
             ) : (
@@ -226,7 +227,7 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
           <div className="preview-banner">
             <Icon name="spark" size={15} />
             <span>Pratinjau desain dengan data contoh.</span>
-            <a href="/">Buka portal login</a>
+            <a href={withBasePath("/")}>Buka portal login</a>
           </div>
         )}
 
@@ -301,7 +302,7 @@ export function MemberPortal({ initial, preview = false }: MemberPortalProps) {
                   </button>
                 )}
                 {preview ? (
-                  <a className="btn-ghost" href="/">
+                  <a className="btn-ghost" href={withBasePath("/")}>
                     <Icon name="arrow-right" size={14} />
                     Ke login
                   </a>

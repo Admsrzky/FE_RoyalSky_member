@@ -1,4 +1,5 @@
 "use client";
+import { withBasePath } from "@/lib/base-path";
 
 import { Brand } from "./brand";
 import { Icon } from "./icons";
@@ -29,7 +30,7 @@ export function PortalError({ message }: { message: string }) {
               Coba lagi
               <Icon name="refresh" size={16} />
             </button>
-            <a className="btn-ghost" href="/api/auth/logout">
+            <a className="btn-ghost" href={withBasePath("/api/auth/logout")}>
               Keluar
             </a>
           </div>
