@@ -12,7 +12,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Buka `http://localhost:3000`. Halaman contoh desain tanpa login tersedia di `http://localhost:3000/preview`.
+Buka `http://localhost:3001`. Halaman contoh desain tanpa login tersedia di `http://localhost:3001/preview`.
 
 Variabel lingkungan:
 
