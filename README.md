@@ -14,6 +14,12 @@ npm run dev
 
 Buka `http://localhost:3001`. Halaman contoh desain tanpa login tersedia di `http://localhost:3001/preview`.
 
+### Windows
+
+- Klik dua kali `start-portal.bat` untuk menghentikan server lama di port `3001`, menjalankan `npm run dev`, lalu membuka portal di Chrome.
+- Klik dua kali `stop-portal.bat` untuk mematikan server port `3001`.
+- Biarkan jendela **Royal Sky Dev Server** tetap terbuka selama portal dipakai. Menutup jendela tersebut akan mematikan server.
+
 Variabel lingkungan:
 
 | Variabel | Wajib | Default |
