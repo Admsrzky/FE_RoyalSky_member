@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { ApiError, upstream } from "@/lib/api";
-import { resolvePinlessMember } from "@/lib/pinless";
-import { pinlessLoginEnabled, pinlessServiceReady } from "@/lib/service";
+import { resolveMemberId, resolvePinlessMember } from "@/lib/pinless";
+import {
+  pinlessLoginEnabled,
+  pinlessServiceReady,
+  serviceAccountReady,
+} from "@/lib/service";
 import { authCookies, sessionSecretReady } from "@/lib/session";
 import type { SessionUser } from "@/lib/types";
 
@@ -29,15 +33,15 @@ function failure(message: string, status: number) {
   );
 }
 
-const pinlessAttempts = new Map<string, { count: number; resetAt: number }>();
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
 
-function pinlessRateLimited(request: Request): boolean {
+function loginRateLimited(request: Request): boolean {
   const key =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const now = Date.now();
-  const bucket = pinlessAttempts.get(key);
+  const bucket = loginAttempts.get(key);
   if (!bucket || bucket.resetAt <= now) {
-    pinlessAttempts.set(key, { count: 1, resetAt: now + 60_000 });
+    loginAttempts.set(key, { count: 1, resetAt: now + 60_000 });
     return false;
   }
   bucket.count += 1;
@@ -115,13 +119,14 @@ export async function POST(request: Request) {
     return failure("Masukkan email atau ID member Anda.", 422);
   }
 
+  if (loginRateLimited(request)) {
+    return failure(
+      "Terlalu banyak permintaan login. Coba lagi dalam satu menit.",
+      429,
+    );
+  }
+
   if (pinlessLoginEnabled()) {
-    if (pinlessRateLimited(request)) {
-      return failure(
-        "Terlalu banyak permintaan login. Coba lagi dalam satu menit.",
-        429,
-      );
-    }
     return loginWithoutPin(identifier);
   }
 
@@ -130,10 +135,36 @@ export async function POST(request: Request) {
   }
 
   const numericId = /^\d+$/.test(identifier) ? Number(identifier) : null;
-  const loginBody =
-    numericId !== null && numericId > 0
-      ? { user_id: numericId, pin }
-      : { identifier, pin };
+  let loginBody:
+    | { user_id: number; pin: string }
+    | { identifier: string; pin: string };
+
+  if (numericId !== null && numericId > 0) {
+    loginBody = { user_id: numericId, pin };
+  } else {
+    let resolvedId: number | null = null;
+
+    if (serviceAccountReady()) {
+      try {
+        resolvedId = await resolveMemberId(identifier);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          // Not in the member directory. Let the upstream decide so staff
+          // accounts still receive the route's member-only rejection.
+          console.info(
+            "[login] identifier not found in member directory; trying identifier login",
+          );
+        } else {
+          console.error("[login] member id lookup failed", error);
+        }
+      }
+    }
+
+    loginBody =
+      resolvedId !== null
+        ? { user_id: resolvedId, pin }
+        : { identifier, pin };
+  }
 
   try {
     const data = await upstream<LoginPayload>("/auth/login", {

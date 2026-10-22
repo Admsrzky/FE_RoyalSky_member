@@ -11,14 +11,20 @@ function textOf(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function positiveId(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 /**
  * Resolves an e-mail, member code, or numeric member id with the server-side
- * service account. This is only used by the temporary PIN-less mode; the
- * service token never leaves the server.
+ * service account. Used by the PIN login lookup and the temporary PIN-less
+ * mode; the service token never leaves the server.
  */
-export async function resolvePinlessMember(
-  identifier: string,
-): Promise<SessionUser> {
+async function resolveMemberRecord(identifier: string): Promise<{
+  raw: unknown;
+  service: Awaited<ReturnType<typeof getServiceSession>>;
+}> {
   const service = await getServiceSession();
   const needle = identifier.trim();
   const branchId = service.user.homeBranchId || 1;
@@ -52,6 +58,34 @@ export async function resolvePinlessMember(
     );
   }
 
+  return { raw, service };
+}
+
+/**
+ * Returns the numeric member id used by the upstream login endpoint. The live
+ * API rejects e-mail/identifier login for member accounts, but accepts the same
+ * credentials when sent as `user_id`.
+ */
+export async function resolveMemberId(identifier: string): Promise<number> {
+  const { raw } = await resolveMemberRecord(identifier);
+  const row = isRecord(raw) ? raw : {};
+  const card = buildMemberCard(raw);
+  const id =
+    positiveId(row.user_id) ??
+    positiveId(row.auth_user_id) ??
+    positiveId(row.account_id) ??
+    positiveId(card.id);
+
+  if (id === null) {
+    throw new ApiError("Data member dari server tidak lengkap.", 502);
+  }
+  return id;
+}
+
+export async function resolvePinlessMember(
+  identifier: string,
+): Promise<SessionUser> {
+  const { raw, service } = await resolveMemberRecord(identifier);
   const card = buildMemberCard(raw);
   const id = Number(card.id);
   if (!Number.isFinite(id) || id <= 0) {

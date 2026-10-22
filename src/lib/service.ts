@@ -31,6 +31,10 @@ function readList(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => String(item)) : [];
 }
 
+export function serviceAccountReady(): boolean {
+  return serviceCredentials() !== null;
+}
+
 export function pinlessLoginEnabled(): boolean {
   return process.env.ROYALE_ALLOW_PINLESS_LOGIN === "1";
 }
@@ -45,7 +49,7 @@ function serviceCredentials(): { userId: number; pin: string } | null {
 }
 
 export function pinlessServiceReady(): boolean {
-  return pinlessLoginEnabled() && serviceCredentials() !== null;
+  return pinlessLoginEnabled() && serviceAccountReady();
 }
 
 export async function getServiceSession(forceRefresh = false): Promise<ServiceSession> {
