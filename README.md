@@ -20,6 +20,7 @@ Variabel lingkungan:
 | --- | --- | --- |
 | `ROYALE_API_BASE_URL` | tidak | `https://api.mpdev.my.id/api/v1` |
 | `ROYALE_API_TIMEOUT_MS` | tidak | `15000` |
+| `ROYALE_API_TLS_COMPAT` | tidak | `1` |
 
 ## Perintah
 
@@ -56,6 +57,7 @@ Alur data:
 
 ### Catatan integrasi
 
+- Jaringan kantor yang melakukan TLS interception dengan CA lama (mis. `POSCO_CA` 1024-bit) ditolak oleh OpenSSL bawaan Node. `ROYALE_API_TLS_COMPAT=1` mengaktifkan fallback yang tetap memverifikasi hostname dan chain memakai CA dari certificate store sistem; set ke `0` bila tidak diperlukan.
 - Endpoint gate-card (`GET /members/{id}/gate-card`) dipakai oleh aplikasi Flutter, tetapi belum tercantum di OpenAPI live. Portal memperlakukannya sebagai data opsional: jika gagal, kartu tetap tampil dengan status QR belum tersedia.
 - Sebagian akun memiliki ID user autentikasi yang berbeda dari ID member. Jika lookup berdasarkan ID gagal, portal mencoba mencari member berdasarkan email akun.
 - Login hanya menerima PIN 4–6 digit. Rate limit upstream tetap berlaku (5 percobaan/menit).

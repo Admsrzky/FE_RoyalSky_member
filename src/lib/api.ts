@@ -1,3 +1,6 @@
+import { request as httpsRequest } from "node:https";
+import * as tls from "node:tls";
+
 const DEFAULT_BASE_URL = "https://api.mpdev.my.id/api/v1";
 
 export const API_BASE_URL = (
@@ -8,6 +11,8 @@ const TIMEOUT_MS = (() => {
   const parsed = Number(process.env.ROYALE_API_TIMEOUT_MS);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 15_000;
 })();
+
+const TLS_COMPAT = process.env.ROYALE_API_TLS_COMPAT !== "0";
 
 type Envelope = {
   success?: boolean;
@@ -88,6 +93,120 @@ type RequestOptions = {
   timeoutMs?: number;
 };
 
+type TransportResult = {
+  status: number;
+  text: string;
+};
+
+function errorText(error: unknown, depth = 0): string {
+  if (depth > 4 || !(error instanceof Error)) return String(error);
+  const cause = (error as Error & { cause?: unknown }).cause;
+  return `${error.name} ${error.message} ${errorText(cause, depth + 1)}`;
+}
+
+/**
+ * Some corporate networks intercept TLS with an old/self-signed proxy CA that
+ * Node's OpenSSL policy rejects (`CA certificate key too weak`). Browsers trust
+ * the same CA from the Windows certificate store. Detect only that class of
+ * failure so ordinary network errors are not retried through another stack.
+ */
+function isCertificateError(error: unknown): boolean {
+  const text = errorText(error).toLowerCase();
+  return [
+    "certificate",
+    "self-signed",
+    "self signed",
+    "key too weak",
+    "unable to verify",
+    "unable_to_verify",
+    "unable to get local issuer",
+    "cert_",
+    "ssl routines",
+  ].some((needle) => text.includes(needle));
+}
+
+function systemCaCertificates(): string[] {
+  const compatTls = tls as typeof tls & {
+    getCACertificates?: (type: "system") => string[];
+  };
+  try {
+    return compatTls.getCACertificates?.("system") ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fallback transport for a trusted OS certificate store that contains a legacy
+ * CA. Hostname and chain verification stay enabled; only the OpenSSL security
+ * level is relaxed enough to accept the proxy's old root certificate.
+ */
+function nodeHttpsRequest(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<TransportResult> {
+  return new Promise((resolve, reject) => {
+    const headers = new Headers(init.headers);
+    headers.set("Accept-Encoding", "identity");
+
+    const body =
+      typeof init.body === "string" ? init.body : undefined;
+    if (body !== undefined) {
+      headers.set("Content-Length", String(Buffer.byteLength(body)));
+    }
+
+    const ca = systemCaCertificates();
+    const request = httpsRequest(
+      url,
+      {
+        method: init.method ?? "GET",
+        headers: Object.fromEntries(headers.entries()),
+        ca: ca.length > 0 ? ca : undefined,
+        ciphers: "DEFAULT@SECLEVEL=0",
+        minVersion: "TLSv1.2",
+        timeout: timeoutMs,
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer | string) => {
+          chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+        });
+        response.on("end", () => {
+          resolve({
+            status: response.statusCode ?? 0,
+            text: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+        response.on("error", reject);
+      },
+    );
+
+    request.on("timeout", () => {
+      const error = new Error("Upstream request timed out");
+      error.name = "TimeoutError";
+      request.destroy(error);
+    });
+    request.on("error", reject);
+    if (body !== undefined) request.write(body);
+    request.end();
+  });
+}
+
+async function sendRequest(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<TransportResult> {
+  try {
+    const response = await fetch(url, init);
+    return { status: response.status, text: await response.text() };
+  } catch (error) {
+    if (!TLS_COMPAT || !isCertificateError(error)) throw error;
+    return nodeHttpsRequest(url, init, timeoutMs);
+  }
+}
+
 /**
  * Calls the Royale Sky API and unwraps its `{ success, code, message, data }`
  * envelope. Only import this from server code — the bearer token lives here.
@@ -111,15 +230,19 @@ export async function upstream<T>(
     headers.set("X-Branch-Id", String(branchId));
   }
 
-  let response: Response;
+  let result: TransportResult;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-      cache: "no-store",
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    result = await sendRequest(
+      `${API_BASE_URL}${path}`,
+      {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+        cache: "no-store",
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+      timeoutMs,
+    );
   } catch (error) {
     const timedOut =
       error instanceof Error &&
@@ -132,7 +255,7 @@ export async function upstream<T>(
     );
   }
 
-  const text = await response.text();
+  const text = result.text;
   let payload: unknown = null;
   if (text) {
     try {
@@ -143,7 +266,7 @@ export async function upstream<T>(
   }
 
   const envelope: Envelope = isRecord(payload) ? payload : {};
-  const failed = response.status >= 400 || envelope.success === false;
+  const failed = result.status >= 400 || envelope.success === false;
 
   if (failed) {
     const serverMessage =
@@ -157,12 +280,12 @@ export async function upstream<T>(
       firstFieldMessage ||
       (serverMessage && serverMessage !== "api.validation_failed"
         ? serverMessage
-        : gatewayMessage(response.status));
+        : gatewayMessage(result.status));
 
     throw new ApiError(
       message,
-      response.status,
-      typeof envelope.code === "number" ? envelope.code : response.status,
+      result.status,
+      typeof envelope.code === "number" ? envelope.code : result.status,
       errors,
       envelope.trace_id,
     );
