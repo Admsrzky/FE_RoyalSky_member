@@ -1928,7 +1928,7 @@ svg {
 
 .mc-front-main {
   position: absolute;
-  inset: 0 20px 70px;
+  inset: 58px 20px 70px;
   z-index: 4;
   display: flex;
   flex-direction: column;
@@ -1949,7 +1949,9 @@ svg {
   justify-content: center;
   width: 224px;
   height: 160px;
-  margin-bottom: 4px;
+  /* logo PNG punya ruang transparan ~15px di bawah, jadi ditarik negatif
+     supaya "GYM CLUB" menempel rapat ke emblem */
+  margin-bottom: -15px;
 }
 
 .mc-brand-logo img {
@@ -2012,7 +2014,7 @@ svg {
 
 .mc-gym {
   flex: 0 0 auto;
-  margin-top: 11px;
+  margin-top: 0;
   color: #fff;
   font-family: var(--font-body);
   font-size: 12.5px;
